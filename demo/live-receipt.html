@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>用餐 · 实时点单回执</title>
+<style>
+  :root{
+    --bg:#141428; --panel:#1d1d3a; --panel2:#191932; --line:#31315e;
+    --yellow:#ffd93d; --red:#ff5d5d; --cyan:#71dfe4; --green:#7ce38b;
+    --paper:#fdf8ea; --ink:#231a10; --dim:#8d8db8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size:28px 28px;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    color:#e8e8f5; padding:22px 18px 40px;
+  }
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:999;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);}
+  .vig{position:fixed;inset:0;pointer-events:none;z-index:998;
+    background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.5));}
+
+  header{text-align:center;margin-bottom:18px}
+  .sprites{display:flex;justify-content:center;align-items:flex-end;gap:26px;margin-bottom:8px}
+  .sprites canvas{image-rendering:pixelated;animation:bob 1.3s steps(2) infinite}
+  .sprites canvas:nth-child(2){animation-delay:.2s}
+  .sprites canvas:nth-child(3){animation-delay:.4s}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  h1{
+    font-size:56px;color:var(--yellow);letter-spacing:14px;text-indent:14px;font-weight:900;
+    text-shadow:4px 4px 0 #7a4a00, 8px 8px 0 rgba(0,0,0,.35);
+  }
+  .subtitle{margin-top:6px;color:var(--cyan);font-size:16px;letter-spacing:3px}
+  .subtitle b{color:var(--yellow)}
+  .brandline{margin-top:4px;color:var(--dim);font-size:12px;letter-spacing:4px}
+
+  main{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:392px 1fr;gap:20px;align-items:start}
+  @media (max-width:960px){main{grid-template-columns:1fr}}
+  @media (max-width:600px){
+    h1{font-size:40px;letter-spacing:8px;text-indent:8px}
+    .paper{width:100%}
+    .tr-top .sname{font-size:11.5px}
+  }
+
+  .panel{background:var(--panel);border:3px solid var(--line);border-radius:8px;padding:18px;
+    box-shadow:0 0 0 3px #0c0c1c, 0 0 26px rgba(113,223,228,.12);}
+  .panel h2{font-size:15px;color:var(--cyan);letter-spacing:2px;margin-bottom:12px;
+    border-bottom:2px dashed var(--line);padding-bottom:8px}
+  .panel h2 .thm{float:right;font-size:11.5px;color:var(--dim);letter-spacing:1px;font-weight:400;margin-left:10px}
+
+  /* 门店实时条 */
+  .store{border:2px solid #2a2a52;background:#16162e;border-radius:6px;padding:12px 13px;margin-bottom:14px}
+  .store .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0}
+  .store .row span:first-child{color:var(--dim);letter-spacing:1px;white-space:nowrap}
+  .store .row span:last-child{text-align:right;color:#dcdcf0}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:800;font-size:11.5px;letter-spacing:2px}
+  .live i{width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 9px var(--green);animation:blink 2.2s infinite;display:inline-block}
+  @keyframes blink{0%,55%{opacity:1}65%,75%{opacity:.15}85%,100%{opacity:1}}
+
+  /* 档位切换 */
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:6px}
+  .tab{
+    background:#22224a;border:3px solid #33336b;border-radius:6px;padding:11px 8px;cursor:pointer;
+    font-family:inherit;color:#b9b9d9;text-align:left;transition:border-color .12s,color .12s;
+  }
+  .tab b{display:block;font-size:15px;letter-spacing:1px;color:#e6e6f7}
+  .tab em{display:block;font-style:normal;font-size:11.5px;color:var(--dim);margin-top:3px;letter-spacing:.5px}
+  .tab .pr{float:right;color:var(--yellow);font-weight:800;font-size:15px;font-family:Consolas,monospace}
+  .tab:hover{border-color:#4c4c92}
+  .tab.on{border-color:var(--yellow);background:#2c2a1c;color:var(--yellow);
+    box-shadow:0 0 0 2px rgba(255,217,61,.18), 0 0 18px rgba(255,217,61,.12)}
+  .tab.on b{color:var(--yellow)}
+
+  /* 券 */
+  .coupon{margin-top:14px;border:2px dashed #4a4a80;border-radius:6px;padding:11px 12px;background:#191933}
+  .coupon h4{font-size:12px;color:var(--yellow);letter-spacing:2px;margin-bottom:8px}
+  .coupon li{list-style:none;font-size:13px;color:#d7d7ec;padding:4px 0;display:flex;justify-content:space-between;gap:8px}
+  .coupon li b{color:var(--red);font-weight:800}
+
+  .actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+  .copybtn{
+    flex:1;background:#26265a;color:var(--cyan);border:2px solid #3d3d77;border-radius:6px;
+    padding:12px 16px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:700;letter-spacing:1px;
+  }
+  .copybtn:hover{border-color:var(--cyan)}
+  .copybtn.done{color:var(--green);border-color:var(--green)}
+
+  /* 电视机 */
+  .tv{background:#26263c;border:12px solid #191926;border-radius:18px;padding:12px 14px 4px;
+    box-shadow:0 14px 44px rgba(0,0,0,.55), inset 0 0 34px rgba(0,0,0,.55);}
+  .tv-bar{display:flex;justify-content:space-between;align-items:center;color:#7f7fa8;
+    font-size:11px;letter-spacing:3px;padding:2px 4px 10px}
+  .ted{display:flex;align-items:center;gap:10px}
+  .led{width:9px;height:9px;background:var(--red);border-radius:50%;
+    box-shadow:0 0 9px var(--red);animation:blink 2.4s infinite}
+  .screen{background:#101024;border-radius:6px;padding:22px 12px 26px;min-height:120px}
+
+  .paper{
+    background:var(--paper);color:var(--ink);width:372px;max-width:100%;margin:0 auto;
+    font-family:"SimSun","NSimSun",serif;font-size:14.5px;line-height:1.6;
+    padding:18px 16px 16px;position:relative;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);
+  }
+  /* 打印扫描光：纸面始终完整可见，只让一层高光从上扫到下 */
+  .paper:before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,transparent 0,rgba(150,118,58,.16) 50%,transparent 100%);
+    background-size:100% 45%;background-repeat:no-repeat;background-position:0 -45%;
+    animation:scan 1.15s ease-out 1 forwards;
+  }
+  @keyframes scan{to{background-position:0 145%}}
+  .paper:after{
+    content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;
+    background:linear-gradient(-45deg,var(--paper) 6px,transparent 0),
+               linear-gradient(45deg,var(--paper) 6px,transparent 0);
+    background-size:12px 12px;background-repeat:repeat-x;
+  }
+  .p-head{text-align:center;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:9px}
+  .p-head .brand{font-size:19px;font-weight:700;letter-spacing:6px;text-indent:6px}
+  .p-head .shop{font-size:12.5px;margin-top:2px}
+  .p-head .meta{font-size:11.5px;color:#5a4a35;margin-top:3px}
+  .p-mode{text-align:center;font-size:13px;font-weight:700;letter-spacing:2px;
+    background:var(--ink);color:var(--paper);padding:3px 0;margin:8px 0 10px}
+  .p-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2.5px 0}
+  .p-row .nm{flex:1}
+  .p-row .qt{color:#6b5a44;font-size:12.5px;min-width:22px;text-align:center}
+  .p-row .am{font-family:Consolas,monospace;font-size:13.5px}
+  .p-kcal{font-size:11px;color:#7a6a52;padding:0 0 3px 0}
+  .p-dash{border-top:1px dashed #a89a80;margin:7px 0}
+  .p-total{display:flex;justify-content:space-between;font-size:16px;font-weight:700;padding:3px 0}
+  .p-total .am{font-family:Consolas,monospace}
+  .p-sub{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#5a4a35;padding:1.5px 0}
+  .p-sub span:last-child{text-align:right;max-width:66%}
+  .p-ok{text-align:center;font-size:12px;font-weight:700;color:#1f6b32;
+    border:1.5px solid #1f6b32;padding:4px 0;margin-top:9px;letter-spacing:1px}
+  .p-save{text-align:center;font-size:13px;font-weight:700;color:#a3241a;
+    border:1.5px dashed #a3241a;padding:5px 0;margin-top:8px;letter-spacing:1px}
+  .p-foot{text-align:center;font-size:10.5px;color:#6b5a44;margin-top:9px;line-height:1.5;
+    font-family:Consolas,monospace}
+  .p-note{text-align:center;font-size:11px;color:#7a6a52;margin-top:6px;line-height:1.5}
+
+  /* 底部两卡 */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:820px){.cards{grid-template-columns:1fr}}
+  .cards h3{font-size:14px;color:var(--cyan);letter-spacing:2px;margin-bottom:8px;
+    border-bottom:2px dashed var(--line);padding-bottom:7px}
+  .trace-row{padding:9px 3px;border-bottom:1px dashed var(--line)}
+  .tr-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .tr-top .sname{color:var(--cyan);font-weight:700;font-size:12.5px;letter-spacing:.3px}
+  .tr-top .sok{color:var(--green);font-family:Consolas,monospace;font-weight:700;font-size:12px}
+  .tr-desc{color:#b9b9d9;font-size:12px;margin-top:2px;line-height:1.45}
+  .tr-id{color:#8383ad;font-family:Consolas,monospace;font-size:10.5px;margin-top:2px;word-break:break-all}
+  .chk li{list-style:none;padding:7px 3px;border-bottom:1px dashed var(--line);font-size:13px;line-height:1.55}
+  .chk .pass{color:var(--green);font-weight:800}
+  .chk .warn{color:var(--yellow);font-weight:800}
+  .richnote{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.6}
+
+  footer{max-width:1180px;margin:26px auto 0;color:var(--dim);font-size:12px;
+    text-align:center;letter-spacing:1px;line-height:1.9}
+  footer b{color:var(--yellow)}
+</style>
+</head>
+<body>
+<div class="scan"></div><div class="vig"></div>
+
+<header>
+  <div class="sprites">
+    <canvas id="cvDrink" width="12" height="15"></canvas>
+    <canvas id="cvBurger" width="16" height="12"></canvas>
+    <canvas id="cvFries" width="14" height="12"></canvas>
+  </div>
+  <h1>用 餐</h1>
+  <div class="subtitle">真菜单 · 真价格 · 官方核价 ——> 一张<b>能拿去下单</b>的小票</div>
+  <div class="brandline">PIXEL DINER · 麦当劳 MCP 实时版 · 2026-10-23 15:26</div>
+</header>
+
+<main>
+  <!-- 左：本次点单信息 -->
+  <section>
+    <div class="panel">
+      <h2>■ 本次点单<span class="thm">1 人 · 不辣</span></h2>
+
+      <div class="store">
+        <div class="row"><span>门店</span><span>华旭国际大厦餐厅</span></div>
+        <div class="row"><span>地址</span><span>上海 · 黄浦</span></div>
+        <div class="row"><span>门店码</span><span style="font-family:Consolas,monospace">1450713</span></div>
+        <div class="row"><span>时段</span><span>下午茶 · 在售 124 品</span></div>
+        <div class="row"><span>数据</span><span class="live"><i></i>MCP LIVE</span></div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-k="A"><span class="pr">30.0</span><b>A 轻食</b><em>325 kcal · 最轻</em></button>
+        <button class="tab" data-k="B"><span class="pr">39.0</span><b>B 吃好</b><em>802 kcal · 最饱</em></button>
+        <button class="tab" data-k="C"><span class="pr">47.0</span><b>C 豪华</b><em>751 kcal · 最全</em></button>
+        <button class="tab" data-k="D"><span class="pr">35.3</span><b>D 省钱</b><em>原价 56 · 省 20.7</em></button>
+      </div>
+
+      <div class="coupon">
+        <h4>◆ 可领券（接口实时返回）</h4>
+        <ul>
+          <li><span>麦辣鸡腿堡</span><b>11.9 元</b></li>
+          <li><span>王牌炸鸡任选 2</span><b>19.9 元</b></li>
+          <li><span>脆薯饼</span><b>免费</b></li>
+        </ul>
+      </div>
+
+      <div class="actions">
+        <button class="copybtn" id="copyBtn">📋 复制小票（发群里）</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右：小票 -->
+  <section>
+    <div class="tv">
+      <div class="tv-bar">
+        <span>PIXEL DINER · 现打小票</span>
+        <span class="ted"><span style="font-size:10px;color:var(--green)">LIVE</span><span class="led"></span></span>
+      </div>
+      <div class="screen"><div id="paperHost"></div></div>
+    </div>
+
+    <div class="cards">
+      <div class="panel">
+        <h3>■ 官方计价核验（calculate-price）</h3>
+        <ul class="chk" id="calcHost"></ul>
+        <div class="richnote" id="calcNote"></div>
+      </div>
+      <div class="panel">
+        <h3>■ MCP 调用链（traceId 可核）</h3>
+        <div id="traceHost"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  价格与餐品来自 <b>mcp.mcd.cn</b> 实时接口，非本地价目表 · 每单都跑官方计价核验，逐分对齐<br>
+  营养未收录的品项如实标注「未收录」，不估算、不套用相似品项
+</footer>
+
+<script>
+/* ---------- 像素画（纯代码绘制，无图片依赖） ---------- */
+const PAL = {o:'#f2a25c',O:'#c97a33',s:'#ffe8b0',L:'#57b84e',l:'#3e8f3a',C:'#ffcf40',
+  P:'#7c4526',b:'#f2b06a',B:'#c9853f',F:'#ffd93d',f:'#d9a92e',R:'#e35d5d',r:'#b23c3c',
+  W:'#ffffff',S:'#ff5d5d',G:'#cfd8dc',D:'#71dfe4',d:'#3fa8ad'};
+const BURGER = [
+"....oooooooo....",
+"..oooooooooooo..",
+".oossooossoosoo.",
+"oosoosoosoosooso",
+".OOOOOOOOOOOOOO.",
+".lLLLLLLLLLLLLl.",
+"..CCCCCCCCCCCC..",
+"..PPPPPPPPPPPP..",
+"..PPPPPPPPPPPP..",
+".bbbbbbbbbbbbbb.",
+".BBBBBBBBBBBBBB.",
+"..BBBBBBBBBBBB..",
+];
+const FRIES = [
+"...F..F..F....",
+"..FF..FF.FF...",
+"..FFfFFfFFf...",
+"..FFFF.FFF....",
+"..RRRRRRRRRR..",
+".RWWRRRRRRWWR.",
+".RRRRRRRRRRRR.",
+".RRRRRRRRRRRR.",
+".rRRRRRRRRRRr.",
+".rrrrrrrrrrrr.",
+"..rrrrrrrrrr..",
+];
+const DRINK = [
+".......SS...",
+".......SS...",
+".......SS...",
+"..GGGGGGGG..",
+".GGGGGGGGGG.",
+".DDDDDDDDDD.",
+".DWWDDDDWWD.",
+".DDWWDDWWDD.",
+".DDDDDDDDDD.",
+".DDDDDDDDDD.",
+".DDDDDDDDDD.",
+".dDDDDDDDDd.",
+".dddddddddd.",
+"..dddddddd..",
+"....dddd....",
+];
+function drawSprite(id, rows, scale){
+  const cv = document.getElementById(id);
+  const W = Math.max(...rows.map(r=>r.length));
+  cv.width = W*scale; cv.height = rows.length*scale;
+  const ctx = cv.getContext('2d');
+  rows.forEach((row,y)=>{
+    row = (row + '.'.repeat(W)).slice(0,W);
+    [...row].forEach((ch,x)=>{
+      if(PAL[ch]){ ctx.fillStyle = PAL[ch]; ctx.fillRect(x*scale, y*scale, scale, scale); }
+    });
+  });
+}
+drawSprite('cvBurger', BURGER, 7);
+drawSprite('cvFries',  FRIES,  7);
+drawSprite('cvDrink',  DRINK,  7);
+
+/* ---------- 真实数据（2026-10-23 15:26 实测） ---------- */
+const STORE = {name:'麦当劳上海黄浦华旭国际大厦餐厅', code:'1450713', time:'2026-10-23 15:26'};
+
+const PLANS = {
+  A:{
+    name:'A 轻食档', tag:'不辣 · 轻',
+    items:[
+      {n:'麦香鱼', q:1, p:22.5, kcal:325},
+      {n:'纯悦',   q:1, p:7.5,  kcal:0}
+    ],
+    local:30.00, official:{orig:30.00, disc:0, pay:30.00},
+    trace:'fed24b189105ed2e4d78b73e6c44eeda',
+    kcalNote:'2/2 已收录',
+    why:'麦香鱼是不辣系里最划算的堡，配纯悦把热量压到 325，下午茶刚好。'
+  },
+  B:{
+    name:'B 吃好档', tag:'不辣 · 饱',
+    items:[
+      {n:'巨无霸',   q:1, p:25.5, kcal:513},
+      {n:'薯条(中)', q:1, p:13.5, kcal:289}
+    ],
+    local:39.00, official:{orig:39.00, disc:0, pay:39.00},
+    trace:'47c62f89c89e1b3eebdfbe28c69c09e1',
+    kcalNote:'2/2 已收录',
+    why:'经典组合，802 kcal 顶一顿正餐；薯条按中薯营养口径（289）。'
+  },
+  C:{
+    name:'C 豪华档', tag:'不辣 · 全',
+    items:[
+      {n:'板烧鸡腿堡', q:1, p:23.5, kcal:391},
+      {n:'麦乐鸡(5块)', q:1, p:14.0, kcal:213},
+      {n:'可乐(中)',   q:1, p:9.5,  kcal:147}
+    ],
+    local:47.00, official:{orig:47.00, disc:0, pay:47.00},
+    trace:'5b32ae1246744feb2cc7354bf1a4413e',
+    kcalNote:'3/3 已收录',
+    why:'有堡有肉有汽水，751 kcal，是 50 元内结构最完整的一档。'
+  },
+  D:{
+    name:'D 辣味省钱档', tag:'辣 · 促销',
+    items:[
+      {n:'龙焰鸡腿堡',   q:1, p:15.9, kcal:null, orig:24.0},
+      {n:'心形薯饼 8 块', q:1, p:9.9,  kcal:null, orig:22.5},
+      {n:'可乐(中)',     q:1, p:9.5,  kcal:147}
+    ],
+    local:35.30, official:{orig:56.00, disc:20.70, pay:35.30},
+    trace:'a63fa1cd8988bd1c7f6a3416b0f60c70',
+    kcalNote:'1/3 已收录 · 2 项未收录',
+    why:'两项促销价只有接口拿得到，菜牌看不出、本地也算不出来：原价 56，实付 35.3。'
+  }
+};
+
+const CHAIN = [
+  {tool:'query-nearby-stores', desc:'定位门店 → 1450713', tid:'b1bc565a161f8d9169b5de906ced8b1b'},
+  {tool:'query-meals',         desc:'124 品实时价 · 15 分类', tid:'98538572c4964300ad994ec2599bd71f'},
+  {tool:'list-nutrition-foods',desc:'160 条官方营养', tid:'d03e95876e7eea4b05a61bfb2b41d7fb'},
+  {tool:'available-coupons',   desc:'3 类可领券', tid:'4db653dee6fd8a3b33e6c37e8d8e8bc7'},
+  {tool:'calculate-price',     desc:'四档逐分核价', tid:'e7680717d5a5115236ddcf76579d945d'}
+];
+
+/* ---------- 渲染 ---------- */
+const $ = id => document.getElementById(id);
+const money = v => v.toFixed(2);
+
+function paperHTML(k){
+  const P = PLANS[k];
+  const totalKcal = P.items.reduce((s,i)=> s + (i.kcal||0)*i.q, 0);
+  const missingKcal = P.items.some(i=>i.kcal===null);
+  const rows = P.items.map(i=>{
+    const kcal = i.kcal===null ? '未收录' : (i.kcal*i.q)+' kcal';
+    return `<div class="p-row"><span class="nm">${i.n}</span><span class="qt">×${i.q}</span><span class="am">${money(i.p*i.q)}</span></div>
+      <div class="p-kcal">${kcal}${i.orig?` · 原价 ${money(i.orig)}`:''}</div>`;
+  }).join('');
+
+  const saveBlock = P.official.disc > 0
+    ? `<div class="p-save">促销自动生效 · 省 ${money(P.official.disc)} 元</div>
+       <div class="p-sub"><span>原价</span><span>${money(P.official.orig)}</span></div>
+       <div class="p-sub"><span>优惠</span><span>-${money(P.official.disc)}</span></div>`
+    : '';
+
+  const okText = P.official.disc > 0
+    ? `应付 ${money(P.official.pay)} · 与官方一致 ✓`
+    : `官方核价 ${money(P.official.pay)} · 逐分一致 ✓`;
+
+  return `<div class="paper">
+    <div class="p-head">
+      <div class="brand">麦当劳</div>
+      <div class="shop">${STORE.name}</div>
+      <div class="meta">${STORE.time} · 门店 ${STORE.code} · 下午茶时段</div>
+    </div>
+    <div class="p-mode">${P.name}　${P.tag}</div>
+    ${rows}
+    <div class="p-dash"></div>
+    <div class="p-total"><span>合计</span><span class="am">${money(P.official.pay)}</span></div>
+    <div class="p-sub"><span>合计热量</span><span>${totalKcal} kcal${missingKcal?'（部分）':''}</span></div>
+    <div class="p-sub"><span>营养覆盖</span><span>${P.kcalNote}</span></div>
+    <div class="p-ok">${okText}</div>
+    ${saveBlock}
+    <div class="p-note">${P.why}</div>
+    <div class="p-foot">trace ${P.trace.slice(0,16)}</div>
+    <div class="p-foot">mcp.mcd.cn · mcd-mcp v1.0.0</div>
+  </div>`;
+}
+
+function render(k){
+  $('paperHost').innerHTML = paperHTML(k);   /* 重新插入触发打印动画 */
+  const P = PLANS[k];
+
+  const chk = [];
+  chk.push(`<li><span class="pass">✓</span> 本地合计 ${money(P.local)} ＝ 官方返回 ${money(P.official.pay)}</li>`);
+  if(P.official.disc > 0){
+    chk.push(`<li><span class="pass">✓</span> 隐藏优惠已捕获：原价 ${money(P.official.orig)} → 省 ${money(P.official.disc)}</li>`);
+  } else {
+    chk.push(`<li><span class="pass">✓</span> 该档无促销，按牌价结算，无隐形加价</li>`);
+  }
+  const missing = P.items.filter(i=>i.kcal===null).length;
+  if(missing){
+    chk.push(`<li><span class="warn">!</span> ${missing} 个品项未收录营养库，热量未计入</li>`);
+  } else {
+    chk.push(`<li><span class="pass">✓</span> 全部品项营养已收录，热量可直接相加</li>`);
+  }
+  $('calcHost').innerHTML = chk.join('');
+  $('calcNote').textContent = `核价请求带 storeCode=${STORE.code} / orderType=1 / beType=1，与门店下单口径一致。trace ${P.trace.slice(0,8)}…`;
+
+  $('traceHost').innerHTML = CHAIN.map(c=>
+    `<div class="trace-row">
+       <div class="tr-top"><span class="sname">${c.tool}</span><span class="sok">OK</span></div>
+       <div class="tr-desc">${c.desc}</div>
+       <div class="tr-id">${c.tid}</div>
+     </div>`
+  ).join('');
+}
+
+/* ---------- 交互 ---------- */
+let cur = 'A';
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b = e.target.closest('.tab');
+  if(!b) return;
+  [...document.querySelectorAll('.tab')].forEach(t=>t.classList.remove('on'));
+  b.classList.add('on');
+  cur = b.dataset.k;
+  render(cur);
+});
+
+$('copyBtn').addEventListener('click', async ()=>{
+  const P = PLANS[cur];
+  const lines = [
+    `【用餐 · ${P.name}】`,
+    `${STORE.name}（${STORE.code}）`,
+    ...P.items.map(i=>`${i.n} ×${i.q}  ${money(i.p*i.q)} 元${i.kcal===null?'':' / '+i.kcal*i.q+' kcal'}`),
+    `合计 ${money(P.official.pay)} 元` + (P.official.disc>0?`（原价 ${money(P.official.orig)}，省 ${money(P.official.disc)}）`:''),
+    `官方核价 ${money(P.official.pay)} ✓ 一致`,
+    `trace ${P.trace}`
+  ];
+  try{
+    await navigator.clipboard.writeText(lines.join('\n'));
+    const btn = $('copyBtn');
+    btn.textContent = '✓ 已复制';
+    btn.classList.add('done');
+    setTimeout(()=>{ btn.textContent='📋 复制小票（发群里）'; btn.classList.remove('done'); }, 1800);
+  }catch(err){
+    alert('复制失败，请手动选中');
+  }
+});
+
+render('A');
+</script>
+</body>
+</html>

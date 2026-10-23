@@ -147,7 +147,7 @@ python cli/yongcan_cli.py --mode b "想吃鸡腿堡和薯条 预算35"      # �
 ```
 【参赛申请】
 项目名称：用餐 · 把饭点安排明白
-项目地址：https://github.com/<你的用户名>/<仓库名>
+项目地址：https://github.com/YangDong2026/workbuddy-yongcan-skill
 项目简介：一句话点单的麦门用餐引擎——套餐推荐含热量标注、麦门省钱对比、聚餐一键点全员忌口零违反，接入麦当劳 MCP 时用实时菜单与活动。
 ```
 

@@ -1,0 +1,62 @@
+{
+ "captured_at": "2026-10-23 09:44:45",
+ "endpoint": "https://mcp.mcd.cn",
+ "server": "mcd-mcp v1.0.0",
+ "store": "麦当劳上海黄浦华旭国际大厦餐厅 (storeCode=1450713)",
+ "calls": [
+  {
+   "seq": 1,
+   "file": "01_initialize",
+   "status": "OK",
+   "traceId": "-"
+  },
+  {
+   "seq": 2,
+   "file": "02_tools_list",
+   "status": "OK",
+   "traceId": "-"
+  },
+  {
+   "seq": 3,
+   "file": "03_now_time_info",
+   "status": "OK",
+   "traceId": "d23ae324ccb883eec8a07bf1b8264e3f"
+  },
+  {
+   "seq": 4,
+   "file": "04_available_coupons",
+   "status": "OK",
+   "traceId": "ed54b1c880c8e3b482131c500adf76b3"
+  },
+  {
+   "seq": 5,
+   "file": "05_campaign_calendar",
+   "status": "OK",
+   "traceId": "407f9bee9efb7a6b94303ce2276ebf43"
+  },
+  {
+   "seq": 6,
+   "file": "06_nearby_stores",
+   "status": "OK",
+   "traceId": "eff742135d66707d4699f1d3fcdb552c"
+  },
+  {
+   "seq": 7,
+   "file": "07_query_meals",
+   "status": "OK",
+   "traceId": "a12ca83674c637f1411964030b687289"
+  },
+  {
+   "seq": 8,
+   "file": "08_nutrition_foods",
+   "status": "OK",
+   "traceId": "c70ce420bd2851e63fbc20036d845ea2"
+  },
+  {
+   "seq": 9,
+   "file": "09_calculate_price",
+   "status": "OK",
+   "traceId": "e5c03a95b693fa1292c28a87eef84cfd"
+  }
+ ]
+}

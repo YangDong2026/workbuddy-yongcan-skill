@@ -1,0 +1,61 @@
+{
+ "seq": 4,
+ "captured_at": "2026-10-23 09:44:43",
+ "method": "tools/call",
+ "tool": "available-coupons",
+ "arguments": {},
+ "success": true,
+ "traceId": "ed54b1c880c8e3b482131c500adf76b3",
+ "raw_response": {
+  "jsonrpc": "2.0",
+  "id": 104,
+  "result": {
+   "content": [
+    {
+     "text": "### 麦麦省优惠券列表：\n- 优惠券标题：11.9元麦辣鸡腿堡 \\\n  状态：可领取 \\\n  优惠券图片：\\\n    <img src=\"https://img.mcd.cn/cms/images/289fd13e1138b66b.png\" alt=\"11.9元麦辣鸡腿堡\" height=\"auto\" width=\"300\">\n- 优惠券标题：19.9元王牌炸鸡任选2 \\\n  状态：可领取 \\\n  优惠券图片：\\\n    <img src=\"https://img.mcd.cn/cms/images/edc67c7e8284bc71.png\" alt=\"19.9元王牌炸鸡任选2\" height=\"auto\" width=\"300\">\n- 优惠券标题：免费脆薯饼 \\\n  状态：可领取 \\\n  优惠券图片：\\\n    <img src=\"https://img.mcd.cn/cms/images/858839306b7cca66.png\" alt=\"免费脆薯饼\" height=\"auto\" width=\"300\">\n- 优惠券标题：11.9元麦辣鸡腿堡 \\\n  状态：可领取 \\\n  优惠券图片：\\\n    <img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/428e50a23a7243b497691f44f55df3a6/%E9%BA%A6%E8%BE%A3%E9%B8%A1%E8%85%BF%E5%A0%A1600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390870%3B1950070870%26q-key-time%3D1792390870%3B1950070870%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D9335556a091f7531c195c391c1c4a474ab561030\" alt=\"11.9元麦辣鸡腿堡\" height=\"auto\" width=\"300\">\n- 优惠券标题：19.9元王牌炸鸡任选2 \\\n  状态：可领取 \\\n  优惠券图片：\\\n    <img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/3d8aad332ed94030aca790068eb56054/%E7%8E%8B%E7%89%8C%E7%82%B8%E9%B8%A1%E4%BB%BB%E9%80%892%20600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390820%3B1950070820%26q-key-time%3D1792390820%3B1950070820%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D8071268ddd60571549998be5267e1c7b0b71284a\" alt=\"19.9元王牌炸鸡任选2\" height=\"auto\" width=\"300\">\n\n",
+     "type": "text"
+    }
+   ],
+   "isError": false,
+   "structuredContent": {
+    "success": true,
+    "code": 200,
+    "message": "请求成功",
+    "datetime": "2026-10-23 09:44:43",
+    "traceId": "ed54b1c880c8e3b482131c500adf76b3",
+    "data": [
+     {
+      "couponName": "11.9元麦辣鸡腿堡",
+      "couponImage": "https://img.mcd.cn/cms/images/289fd13e1138b66b.png",
+      "couponStatus": "CAN_GET",
+      "label": "可领取"
+     },
+     {
+      "couponName": "19.9元王牌炸鸡任选2",
+      "couponImage": "https://img.mcd.cn/cms/images/edc67c7e8284bc71.png",
+      "couponStatus": "CAN_GET",
+      "label": "可领取"
+     },
+     {
+      "couponName": "免费脆薯饼",
+      "couponImage": "https://img.mcd.cn/cms/images/858839306b7cca66.png",
+      "couponStatus": "CAN_GET",
+      "label": "可领取"
+     },
+     {
+      "couponName": "11.9元麦辣鸡腿堡",
+      "couponImage": "https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/428e50a23a7243b497691f44f55df3a6/%E9%BA%A6%E8%BE%A3%E9%B8%A1%E8%85%BF%E5%A0%A1600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390870%3B1950070870%26q-key-time%3D1792390870%3B1950070870%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D9335556a091f7531c195c391c1c4a474ab561030",
+      "couponStatus": "CAN_GET",
+      "label": "可领取"
+     },
+     {
+      "couponName": "19.9元王牌炸鸡任选2",
+      "couponImage": "https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/3d8aad332ed94030aca790068eb56054/%E7%8E%8B%E7%89%8C%E7%82%B8%E9%B8%A1%E4%BB%BB%E9%80%892%20600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390820%3B1950070820%26q-key-time%3D1792390820%3B1950070820%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D8071268ddd60571549998be5267e1c7b0b71284a",
+      "couponStatus": "CAN_GET",
+      "label": "可领取"
+     }
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>开饭 · 用餐规划引擎</title>
+<style>
+  :root{
+    --bg:#141428; --panel:#1d1d3a; --panel2:#191932; --line:#31315e;
+    --yellow:#ffd93d; --red:#ff5d5d; --cyan:#71dfe4; --green:#7ce38b;
+    --paper:#fdf8ea; --ink:#231a10; --dim:#8d8db8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size:28px 28px;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    color:#e8e8f5; padding:22px 18px 40px;
+  }
+  /* CRT 效果 */
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:999;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);}
+  .vig{position:fixed;inset:0;pointer-events:none;z-index:998;
+    background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.5));}
+
+  /* ===== 头部 ===== */
+  header{text-align:center;margin-bottom:18px}
+  .sprites{display:flex;justify-content:center;align-items:flex-end;gap:26px;margin-bottom:8px}
+  .sprites canvas{image-rendering:pixelated;animation:bob 1.3s steps(2) infinite}
+  .sprites canvas:nth-child(2){animation-delay:.2s}
+  .sprites canvas:nth-child(3){animation-delay:.4s}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  h1{
+    font-size:56px;color:var(--yellow);letter-spacing:14px;text-indent:14px;font-weight:900;
+    text-shadow:4px 4px 0 #7a4a00, 8px 8px 0 rgba(0,0,0,.35);
+  }
+  .subtitle{margin-top:6px;color:var(--cyan);font-size:16px;letter-spacing:3px}
+  .subtitle b{color:var(--yellow)}
+  .brandline{margin-top:4px;color:var(--dim);font-size:12px;letter-spacing:4px}
+
+  /* ===== 布局 ===== */
+  main{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+  @media (max-width:960px){main{grid-template-columns:1fr}}
+  @media (max-width:600px){
+    .fields{grid-template-columns:1fr}
+    .trace-row{grid-template-columns:88px 1fr 54px 58px;gap:6px;font-size:12px}
+    .trace-row .sdesc{font-size:12px}
+    h1{font-size:40px;letter-spacing:8px;text-indent:8px}
+    .checks li{font-size:12.5px}
+  }
+
+  .panel{background:var(--panel);border:3px solid var(--line);border-radius:8px;padding:18px;
+    box-shadow:0 0 0 3px #0c0c1c, 0 0 26px rgba(113,223,228,.12);}
+  .panel h2{font-size:15px;color:var(--cyan);letter-spacing:2px;margin-bottom:12px;
+    border-bottom:2px dashed var(--line);padding-bottom:8px}
+  .panel h2 .thm{float:right;font-size:11.5px;color:var(--dim);letter-spacing:1px;font-weight:400;margin-left:10px}
+
+  /* 一句话点单 */
+  .quick{margin-bottom:16px}
+  .quick input{
+    width:100%;background:#12122b;border:3px solid var(--line);color:#fff;
+    font-size:16px;padding:10px 12px;border-radius:6px;outline:none;font-family:inherit;
+  }
+  .quick input:focus{border-color:var(--cyan)}
+  .quick .hint{color:var(--dim);font-size:12px;margin-top:5px}
+
+  /* 表单 */
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-bottom:6px}
+  .field label{display:block;color:var(--cyan);font-size:13px;letter-spacing:1px;margin-bottom:6px}
+  .stepper{display:flex;align-items:center;gap:6px}
+  .stepper button{
+    width:32px;height:34px;background:#2b2b55;color:var(--cyan);border:2px solid #3d3d77;
+    font-size:17px;font-weight:800;cursor:pointer;border-radius:4px;font-family:inherit;
+  }
+  .stepper button:hover{background:#3a3a70;border-color:var(--cyan)}
+  .stepper .val{
+    min-width:44px;text-align:center;font-size:18px;font-weight:800;color:#fff;
+    background:#12122b;border:2px solid #3d3d77;padding:4px 4px;border-radius:4px;
+  }
+  input.budget{
+    width:100%;background:#12122b;border:2px solid #3d3d77;color:#fff;font-size:18px;
+    font-weight:800;padding:5px 10px;border-radius:4px;outline:none;font-family:inherit;
+  }
+  input.budget:focus{border-color:var(--cyan)}
+  .full{grid-column:1 / -1}
+  input.note{
+    width:100%;background:#12122b;border:2px solid #3d3d77;color:#ccc;font-size:14px;
+    padding:8px 10px;border-radius:4px;outline:none;font-family:inherit;
+  }
+  .notehint{color:var(--dim);font-size:11.5px;margin-top:4px}
+
+  /* 预设 */
+  .presets{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+  .chip{
+    background:#26265a;color:#cfcfe8;border:2px solid #3d3d77;border-radius:16px;
+    font-size:13px;padding:6px 12px;cursor:pointer;font-family:inherit;
+  }
+  .chip:hover{border-color:var(--yellow);color:var(--yellow)}
+
+  .orderbtn{
+    width:100%;margin-top:14px;background:var(--yellow);color:#241d00;border:none;
+    border-radius:6px;padding:16px;font-size:22px;font-weight:900;cursor:pointer;
+    letter-spacing:6px;font-family:inherit;box-shadow:0 5px 0 #b8922a;
+    text-shadow:1px 1px 0 rgba(255,255,255,.4);
+  }
+  .orderbtn:active{transform:translateY(4px);box-shadow:0 1px 0 #b8922a}
+  .errmsg{color:var(--red);font-size:14px;margin-top:10px;min-height:20px;font-weight:700}
+
+  /* ===== 结果区 ===== */
+  #result{display:none}
+  /* 电视机外壳 */
+  .tv{background:#26263c;border:12px solid #191926;border-radius:18px;padding:12px 14px 4px;
+    box-shadow:0 14px 44px rgba(0,0,0,.55), inset 0 0 34px rgba(0,0,0,.55);}
+  .tv-bar{display:flex;justify-content:space-between;align-items:center;color:#7f7fa8;
+    font-size:11px;letter-spacing:3px;padding:2px 4px 10px}
+  .led{width:9px;height:9px;background:var(--red);border-radius:50%;
+    box-shadow:0 0 9px var(--red);animation:blink 2.4s infinite}
+  @keyframes blink{0%,55%{opacity:1}65%,75%{opacity:.15}85%,100%{opacity:1}}
+  .screen{background:#101024;border-radius:6px;padding:20px 12px;min-height:120px}
+  /* 小票纸 */
+  .paper{
+    background:var(--paper);color:var(--ink);width:360px;max-width:100%;margin:0 auto;
+    font-family:"SimSun","NSimSun",serif;font-size:15px;line-height:1.62;
+    padding:16px 12px 14px;position:relative;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);
+    animation:print 1s steps(18);
+  }
+  @keyframes print{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0% 0)}}
+  .paper:after{
+    content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;
+    background:linear-gradient(-45deg,var(--paper) 6px,transparent 0),
+               linear-gradient(45deg,var(--paper) 6px,transparent 0);
+    background-size:12px 12px;background-repeat:repeat-x;
+  }
+  .paper pre{white-space:pre;font-family:inherit}
+  .standby{color:#5d5d92;text-align:center;padding:34px 10px;font-size:15px;letter-spacing:2px}
+  .standby .cur{color:var(--yellow);animation:curblink 1s steps(1) infinite}
+  @keyframes curblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+  /* 点不成横幅 */
+  .refuse{
+    background:#3a1620;border:3px solid var(--red);border-radius:8px;padding:16px 18px;
+    margin-top:16px;color:#ffd7d7;font-size:15px;line-height:1.8;
+  }
+  .refuse b{color:var(--red);font-size:17px}
+  .refuse .ok{color:var(--green)}
+
+  /* 流水 / 自检 卡片 */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:720px){.cards{grid-template-columns:1fr}}
+  .trace-row{
+    display:grid;grid-template-columns:112px 1fr 72px 76px;gap:8px;align-items:baseline;
+    padding:8px 6px;border-bottom:1px dashed var(--line);font-size:13.5px;
+  }
+  .trace-row .sname{color:var(--cyan);font-weight:700;font-size:12.5px}
+  .trace-row .sdesc{color:#b9b9d9;line-height:1.5}
+  .trace-row .sdelta{color:var(--yellow);text-align:right;font-weight:700;font-family:Consolas,monospace}
+  .trace-row .srun{color:var(--green);text-align:right;font-family:Consolas,monospace}
+  .trace-row.final{background:#22224a;border-radius:4px}
+  .checks li{list-style:none;padding:7px 4px;border-bottom:1px dashed var(--line);font-size:13.5px;line-height:1.5}
+  .checks .pass{color:var(--green);font-weight:800}
+  .checks .fail{color:var(--red);font-weight:800}
+  .cards h3{font-size:14px;color:var(--cyan);letter-spacing:2px;margin-bottom:8px;
+    border-bottom:2px dashed var(--line);padding-bottom:7px}
+  .richnote{color:var(--dim);font-size:12.5px;margin-top:10px;line-height:1.6}
+
+  .actions{margin-top:16px;display:flex;gap:12px;flex-wrap:wrap}
+  .copybtn{
+    background:#26265a;color:var(--cyan);border:2px solid #3d3d77;border-radius:6px;
+    padding:10px 18px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:700;
+  }
+  .copybtn:hover{border-color:var(--cyan)}
+  .copybtn.done{color:var(--green);border-color:var(--green)}
+
+  footer{max-width:1180px;margin:26px auto 0;color:var(--dim);font-size:12px;
+    text-align:center;letter-spacing:1px;line-height:1.8}
+  footer b{color:var(--yellow)}
+</style>
+</head>
+<body>
+<div class="scan"></div><div class="vig"></div>
+
+<header>
+  <div class="sprites">
+    <canvas id="cvDrink" width="12" height="15"></canvas>
+    <canvas id="cvBurger" width="16" height="12"></canvas>
+    <canvas id="cvFries" width="14" height="12"></canvas>
+  </div>
+  <h1>用 餐</h1>
+  <div class="subtitle">人数 · 预算 · 口味与饮食偏好 ——> 一张<b>说得清账</b>的用餐小票</div>
+  <div class="brandline">PIXEL DINER · 像素快餐 · 用餐规划引擎 v1.1</div>
+</header>
+
+<main>
+  <!-- 左：需求输入 -->
+  <section class="panel">
+    <h2>■ 用餐需求<span class="thm">人数 · 预算 · 口味与饮食偏好（海报红框口径）</span></h2>
+    <div class="quick">
+      <input id="quickInput" placeholder="一句话点单：6人 150元 2人不吃辣" spellcheck="false">
+      <div class="hint">回车即点单（听得懂“六个人”“俩人”“人均25”“全员不吃辣”“吃不了辣”“俩人清真”“1人过敏”这些说法）</div>
+    </div>
+    <div class="fields">
+      <div class="field full">
+        <label>人数</label>
+        <div class="stepper">
+          <button data-key="n" data-d="-1">−</button>
+          <span class="val" id="v-n">6</span>
+          <button data-key="n" data-d="1">＋</button>
+          <span style="color:var(--dim);font-size:12px">（1–30）</span>
+        </div>
+      </div>
+      <div class="field full">
+        <label>预算（元）</label>
+        <input class="budget" id="v-budget" type="number" min="1" step="0.5" value="150">
+      </div>
+      <div class="field"><label>🌶 不吃辣</label>
+        <div class="stepper"><button data-key="spicy" data-d="-1">−</button><span class="val" id="v-spicy">2</span><button data-key="spicy" data-d="1">＋</button></div>
+      </div>
+      <div class="field"><label>🥬 素食</label>
+        <div class="stepper"><button data-key="veg" data-d="-1">−</button><span class="val" id="v-veg">0</span><button data-key="veg" data-d="1">＋</button></div>
+      </div>
+      <div class="field"><label>🐷 不吃猪肉</label>
+        <div class="stepper"><button data-key="pork" data-d="-1">−</button><span class="val" id="v-pork">0</span><button data-key="pork" data-d="1">＋</button></div>
+      </div>
+      <div class="field"><label>🧊 不喝冰饮</label>
+        <div class="stepper"><button data-key="noIce" data-d="-1">−</button><span class="val" id="v-noIce">0</span><button data-key="noIce" data-d="1">＋</button></div>
+      </div>
+      <div class="field"><label>☕ 不喝咖啡因</label>
+        <div class="stepper"><button data-key="noCaf" data-d="-1">−</button><span class="val" id="v-noCaf">0</span><button data-key="noCaf" data-d="1">＋</button></div>
+      </div>
+      <div class="field full">
+        <label>📝 其他备注（过敏等）</label>
+        <input class="note" id="v-note" placeholder="例：1人对花生过敏">
+        <div class="notehint">填写备注后，共享小食只保留玉米杯、蔬菜沙拉两种最保守选项，且不上甜品（蛋奶交叉风险）</div>
+      </div>
+    </div>
+    <div class="presets" id="presets"></div>
+    <button class="orderbtn" id="orderBtn">开 饭 ！</button>
+    <div class="errmsg" id="errmsg"></div>
+  </section>
+
+  <!-- 右：结果 -->
+  <section id="result">
+    <div class="panel" style="padding:12px 18px;margin-bottom:16px">
+      <h2 style="margin-bottom:0;border-bottom:none;padding-bottom:0">■ 用餐方案<span class="thm">搭配清晰 · 总价与选择有依据（海报黄框口径）</span></h2>
+    </div>
+    <div class="tv">
+      <div class="tv-bar"><span>PIXEL DINER · 现打小票</span><span class="led"></span></div>
+      <div class="screen"><div id="paperHost"><div class="standby">待机中 —— 填好需求，按「开饭！」<br><br><span class="cur">▌</span></div></div></div>
+    </div>
+    <div id="refuseHost"></div>
+    <div class="cards">
+      <div class="panel" id="traceCard">
+        <h3>■ 预算流水（每一步花在哪）</h3>
+        <div id="traceHost"></div>
+      </div>
+      <div class="panel" id="checkCard">
+        <h3>■ 硬约束自检（一票否决）</h3>
+        <ul class="checks" id="checkHost"></ul>
+        <div class="richnote" id="richnote"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="copybtn" id="copyBtn">📋 复制小票文本（发群里）</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  算法 = <b>保底 → 升级 → 收口</b> 三段式 · 总价永不超预算，忌口零违反，结余不硬花<br>
+  数据与计算全程本地运行 · 无网络依赖 · 算法说明见同目录《开饭_用餐指令.md》
+</footer>
+
+<script>
+/* =========================================================
+   开饭 · 用餐规划引擎 v1.0
+   菜单、阶梯、算法与《开饭_用餐指令.md》完全一致，可纸笔复算
+   ========================================================= */
+
+/* ---------- 菜单数据 ---------- */
+const MAINS = {
+  M1:{n:'香辣鸡腿堡',p:16.5,spicy:2,veg:false,pork:false,k:550},
+  M2:{n:'新奥尔良烤鸡腿堡',p:17.5,spicy:0,veg:false,pork:false,k:480},
+  M3:{n:'板烧鸡腿堡',p:17.0,spicy:0,veg:false,pork:false,k:500},
+  M4:{n:'劲脆鸡腿堡',p:16.5,spicy:0,veg:false,pork:false,k:560},
+  M5:{n:'香辣鸡肉卷',p:12.5,spicy:2,veg:false,pork:false,k:420},
+  M6:{n:'老北京鸡肉卷',p:13.5,spicy:0,veg:false,pork:false,k:430},
+  M7:{n:'蔬菜鸡蛋堡',p:12.0,spicy:0,veg:true,pork:false,k:350},
+  M8:{n:'培根蛋堡',p:15.0,spicy:0,veg:false,pork:true,k:450},
+  M9:{n:'深海鳕鱼堡',p:18.0,spicy:0,veg:false,pork:false,k:440},
+  M10:{n:'咖喱鸡腿饭',p:18.5,spicy:1,veg:false,pork:false,k:620},
+  M11:{n:'台式卤肉饭',p:16.0,spicy:0,veg:false,pork:true,k:650},
+  M12:{n:'香菇滑鸡饭',p:17.0,spicy:0,veg:false,pork:false,k:600},
+  M13:{n:'素什锦炒饭',p:15.0,spicy:0,veg:true,pork:false,k:550},
+};
+const SIDES = {
+  S1:{n:'中薯条',p:11,spicy:0,veg:true,k:330},
+  S2:{n:'大薯条',p:14,spicy:0,veg:true,k:480},
+  S3:{n:'黄金鸡米花',p:12,spicy:0,veg:false,k:380},
+  S4:{n:'香辣鸡翅(2只)',p:9.5,spicy:2,veg:false,k:260},
+  S5:{n:'甜玉米杯',p:8,spicy:0,veg:true,k:150},
+  S6:{n:'蔬菜沙拉',p:13,spicy:0,veg:true,k:120},
+  S7:{n:'香酥洋葱圈',p:10,spicy:0,veg:true,k:300},
+  S8:{n:'葡式蛋挞(2只)',p:10,spicy:0,veg:true,k:340},
+};
+const DRINKS = {
+  D1:{n:'冰可乐(中)',p:6,ice:true,caf:true,k:180},
+  D2:{n:'冰柠檬红茶',p:7,ice:true,caf:true,k:120},
+  D3:{n:'鲜榨橙汁',p:9,ice:false,caf:false,k:160},
+  D4:{n:'热美式咖啡',p:12,ice:false,caf:true,k:10},
+  D5:{n:'热柠檬红茶',p:8,ice:false,caf:true,k:60},
+  D6:{n:'矿泉水',p:3,ice:false,caf:false,k:0},
+  D7:{n:'热豆浆',p:7.5,ice:false,caf:false,k:140},
+};
+
+/* 分组阶梯：[保底款, 人气款, 豪华款(null=无)] */
+const MAIN_LADDER = {
+  veg:  ['M7','M13',null],
+  spicy:['M6','M2','M9'],
+  pork: ['M5','M1','M9'],
+  reg:  ['M5','M1','M9'],
+};
+const DRINK_LADDER = {
+  reg:  ['D6','D1','D4'],
+  noIce:['D6','D7','D4'],
+  noCaf:['D6','D3',null],
+};
+const EPS = 1e-9;
+const fmt = x => (Math.round(x*10)/10).toFixed(1);
+
+/* ---------- 求解器：保底 → 升级 → 收口 ---------- */
+function solve(req){
+  const {n, budget, spicy, veg, pork, noIce, noCaf, note} = req;
+
+  /* 第0步 输入核对 */
+  if(!Number.isFinite(n) || n<1 || n>30)  return {err:'人数需在 1–30 之间'};
+  if(!Number.isFinite(budget) || budget<=0) return {err:'预算需为正数'};
+  if(spicy+veg+pork > n) return {err:'主食忌口人数合计超过总人数（一人多忌口请归入最严组，其余写备注）'};
+  if(noIce+noCaf > n)    return {err:'饮料忌口人数合计超过总人数'};
+  const reg = n - spicy - veg - pork;
+
+  const items = {};   // id -> {n,p,k,qty,cat}
+  const steps = [];   // 金额流水
+  let total = 0, kcal = 0;
+
+  function addItem(id, qty, cat){
+    const db = cat==='main' ? MAINS : cat==='side' ? SIDES : DRINKS;
+    if(!items[id]) items[id] = {n:db[id].n, p:db[id].p, k:db[id].k, qty:0, cat};
+    items[id].qty += qty;
+    total += db[id].p * qty;
+    kcal  += db[id].k * qty;
+  }
+  function removeItem(id, qty, cat){
+    const db = cat==='main' ? MAINS : cat==='side' ? SIDES : DRINKS;
+    items[id].qty -= qty;
+    total -= db[id].p * qty;
+    kcal  -= db[id].k * qty;
+    if(items[id].qty <= 0) delete items[id];
+  }
+  function step(name, detail){
+    const prev = steps.length ? steps[steps.length-1].run : 0;
+    steps.push({name, detail, delta:+(total-prev).toFixed(1), run:+total.toFixed(1)});
+  }
+
+  const groups = [
+    {key:'veg',  size:veg,   label:'素食组'},
+    {key:'spicy',size:spicy, label:'不吃辣组'},
+    {key:'pork', size:pork,  label:'不吃猪肉组'},
+    {key:'reg',  size:reg,   label:'常规组'},
+  ];
+  const assign = {};  // 各组当前主食（自检用）
+  const dassign = {}; // 各饮料桶当前饮品（自检用）
+
+  /* 第1步 保底主食：人人有饭吃 */
+  const baseParts = [];
+  for(const g of groups){
+    if(g.size<=0) continue;
+    const id = MAIN_LADDER[g.key][0];
+    addItem(id, g.size, 'main');
+    assign[g.key] = id;
+    baseParts.push(`${g.label}${g.size}人×${MAINS[id].n}${fmt(MAINS[id].p)}`);
+  }
+  step('① 保底主食', baseParts.join('；'), );
+
+  /* 预算不足 → 点不成 */
+  if(budget < total - EPS){
+    const maxUnit = Math.max(...groups.filter(g=>g.size>0).map(g=>MAINS[MAIN_LADDER[g.key][0]].p));
+    return {
+      infeasible:true, req,
+      baseTotal:+total.toFixed(1),
+      gap:+(total-budget).toFixed(1),
+      saveByOne:+(total-maxUnit).toFixed(1),
+      maxUnit,
+      items:{...items}, steps,
+    };
+  }
+
+  /* 第2步 人手一瓶矿泉水（不够就免费柠檬水） */
+  let waterAdded = false;
+  const waterCost = 3*n;
+  if(total + waterCost <= budget + EPS){
+    addItem('D6', n, 'drink');
+    waterAdded = true;
+    step('② 人手矿泉水', `${n}人 × ¥3.0（把预算先留给主食）`);
+  }else{
+    step('② 人手矿泉水', '预算不足跳过——餐厅免费柠檬水管够');
+  }
+
+  /* 第3步 忌口组升级（整组升，不拆散；先紧着忌口的人） */
+  if(veg + spicy + pork === 0) step('③ 忌口组升级', '无忌口组，跳过');
+  for(const g of [groups[0], groups[1], groups[2]]){
+    if(g.size<=0) continue;
+    const [bid, sid] = [MAIN_LADDER[g.key][0], MAIN_LADDER[g.key][1]];
+    if(bid === sid) continue;
+    const cost = (MAINS[sid].p - MAINS[bid].p) * g.size;
+    if(total + cost <= budget + EPS){
+      removeItem(bid, g.size, 'main');
+      addItem(sid, g.size, 'main');
+      assign[g.key] = sid;
+      step(`③ ${g.label}升级`, `${g.size}人：${MAINS[bid].n}→${MAINS[sid].n}（+${fmt(MAINS[sid].p-MAINS[bid].p)}/人，忌口的人先吃好）`);
+    }else{
+      step(`③ ${g.label}升级`, '预算不足，保持保底款');
+    }
+  }
+
+  /* 第4步 常规组升级 */
+  if(reg > 0){
+    const [bid, sid] = [MAIN_LADDER.reg[0], MAIN_LADDER.reg[1]];
+    const cost = (MAINS[sid].p - MAINS[bid].p) * reg;
+    if(total + cost <= budget + EPS){
+      removeItem(bid, reg, 'main');
+      addItem(sid, reg, 'main');
+      assign.reg = sid;
+      step('④ 常规组升级', `${reg}人：${MAINS[bid].n}→${MAINS[sid].n}（+${fmt(MAINS[sid].p-MAINS[bid].p)}/人，上人气招牌）`);
+    }else{
+      step('④ 常规组升级', '预算不足，保持保底款');
+    }
+  }else{
+    step('④ 常规组升级', '无常规组，跳过');
+  }
+
+  /* 第5步 饮料升级（按饮料桶） */
+  const drinkGroups = [
+    {key:'reg',   size:n-noIce-noCaf, label:'常规'},
+    {key:'noIce', size:noIce,         label:'不喝冰'},
+    {key:'noCaf', size:noCaf,         label:'不喝咖啡因'},
+  ];
+  for(const g of drinkGroups){
+    if(g.size<=0) continue;
+    const [did, uid] = [DRINK_LADDER[g.key][0], DRINK_LADDER[g.key][1]];
+    const hasBase = items[did] && items[did].qty >= g.size;   // 保底水是否加上了
+    const cost = hasBase ? (DRINKS[uid].p - DRINKS[did].p) * g.size : DRINKS[uid].p * g.size;
+    if(total + cost <= budget + EPS){
+      if(hasBase) removeItem(did, g.size, 'drink');
+      addItem(uid, g.size, 'drink');
+      dassign[g.key] = uid;
+      step('⑤ 饮料升级', `${g.label}${g.size}人：${hasBase ? DRINKS[did].n+'→'+DRINKS[uid].n : '直接上'+DRINKS[uid].n}（人手一杯）`);
+    }else{
+      step('⑤ 饮料升级', `${g.label}${g.size}人：预算不足，维持${hasBase ? '矿泉水' : '免费柠檬水'}`);
+    }
+  }
+
+  /* 第6步 共享小食（N≥3 才上；必须全员都能吃） */
+  if(n >= 3){
+    let pool = ['S2','S1','S3','S7','S5','S6'];          // 优先级：大薯→中薯→鸡米花→洋葱圈→玉米→沙拉
+    if(spicy===0 && veg===0) pool.splice(3,0,'S4');       // 全员能吃辣才上香辣鸡翅
+    if(veg>0) pool = pool.filter(id=>SIDES[id].veg);      // 有人吃素 → 只上素小食
+    if(note && note.trim()) pool = ['S5','S6'];           // 有过敏备注 → 最保守两样
+    const cap = Math.ceil(n/3);
+    const bought = [];
+    while(bought.length < cap){
+      const pick = pool.find(id => total + SIDES[id].p <= budget + EPS);
+      if(!pick) break;
+      addItem(pick, 1, 'side');
+      bought.push(SIDES[pick].n);
+    }
+    step('⑥ 共享小食', bought.length
+      ? `上限${cap}份，购入：${bought.join('、')}（全员都能吃）`
+      : (cap>0 ? '余额不足，未上共享小食' : '—'));
+  }else{
+    step('⑥ 共享小食', '人数<3不上共享小食，预算集中到人手主食与饮料');
+  }
+
+  /* 第7步 豪华升级（预算明显充裕才启动：人均剩余 ≥ 5元，否则零头收口） */
+  const luxGate = 5 * n;   // 人均5元 ≈ 还能再加一杯饮料的量级，低于此就是零头
+  if(budget - total >= luxGate - EPS){
+  for(const g of [groups[1], groups[2], groups[3]]){       // 不吃辣/不吃猪肉/常规（素食组无豪华款）
+    if(g.size<=0) continue;
+    const sid = MAIN_LADDER[g.key][1], pid = MAIN_LADDER[g.key][2];
+    if(!pid) continue;
+    if(!(items[sid] && items[sid].qty >= g.size)) continue; // 没升过人气款不跳级
+    const cost = (MAINS[pid].p - MAINS[sid].p) * g.size;
+    if(total + cost <= budget + EPS){
+      removeItem(sid, g.size, 'main');
+      addItem(pid, g.size, 'main');
+      assign[g.key] = pid;
+      step(`⑦ ${g.label}豪华升`, `${g.size}人：${MAINS[sid].n}→${MAINS[pid].n}`);
+    }
+  }
+  for(const g of [drinkGroups[0], drinkGroups[1]]){        // 常规/不喝冰 → 热美式
+    if(g.size<=0) continue;
+    const uid = DRINK_LADDER[g.key][1], tid = DRINK_LADDER[g.key][2];
+    if(!tid) continue;
+    if(!(items[uid] && items[uid].qty >= g.size)) continue;
+    const cost = (DRINKS[tid].p - DRINKS[uid].p) * g.size;
+    if(total + cost <= budget + EPS){
+      removeItem(uid, g.size, 'drink');
+      addItem(tid, g.size, 'drink');
+      dassign[g.key] = tid;
+      step('⑦ 饮料豪华升', `${g.label}${g.size}人：${DRINKS[uid].n}→${DRINKS[tid].n}`);
+    }
+  }
+  { /* 甜品：蛋挞，上限 ⌈N/2⌉ 份；有过敏类备注时不上甜品（蛋奶交叉风险） */
+    const cap = Math.ceil(n/2);
+    let cnt = 0;
+    if(!note || !note.trim()){
+      while(cnt < cap && total + 10 <= budget + EPS){ addItem('S8',1,'side'); cnt++; }
+    }
+    if(cnt) step('⑦ 甜品加码', `蛋挞×${cnt}份（上限${cap}，约人均1只）`);
+  }
+  } else {
+    step('⑦ 豪华升级', `剩余 ¥${fmt(budget-total)}（人均 ¥${fmt((budget-total)/n)}）低于门槛 ¥${fmt(luxGate)}，零头不硬花——收口，结余留作现场机动`);
+  }
+  if(!steps.some(s=>s.name.startsWith('⑦'))){
+    step('⑦ 豪华升级', '预算虽达门槛，但各组均已到顶或无可升级项，收口');
+  }
+
+  /* 第8步 收口自检（一票否决） */
+  const mainQty = Object.values(items).filter(i=>i.cat==='main').reduce((a,b)=>a+b.qty,0);
+  const drinkQty = Object.values(items).filter(i=>i.cat==='drink').reduce((a,b)=>a+b.qty,0);
+  const sideItems = Object.values(items).filter(i=>i.cat==='side' && i.n!=='葡式蛋挞(2只)') ;
+  const dessertQty = (items.S8 ? items.S8.qty : 0);
+  const checks = [];
+  checks.push({label:`总价 ¥${fmt(total)} ≤ 预算 ¥${fmt(budget)}`, ok: total <= budget + EPS});
+  checks.push({label:`主食份数 = ${n}（现在 ${mainQty}）`, ok: mainQty === n});
+  if(waterAdded){
+    checks.push({label:`饮料份数 = ${n}（现在 ${drinkQty}）`, ok: drinkQty === n});
+  }else if(drinkQty>0){
+    checks.push({label:`饮料份数 ≤ ${n}（现在 ${drinkQty}，其余免费柠檬水）`, ok: drinkQty <= n});
+  }else{
+    checks.push({label:'饮料：预算不足，全员免费柠檬水（不计价）', ok:true});
+  }
+  if(spicy>0) checks.push({label:'不吃辣组主食辣度为 0（共享小食同样不辣）',
+    ok: MAINS[assign.spicy].spicy===0 && sideItems.every(i=>true) && !(items.S4)});
+  if(veg>0) checks.push({label:'素食组主食全素（小食同为素）',
+    ok: MAINS[assign.veg].veg===true && sideItems.every(i=>SIDES[Object.keys(SIDES).find(k=>SIDES[k].n===i.n)].veg===true)});
+  if(pork>0) checks.push({label:'不吃猪肉组主食不含猪肉', ok: MAINS[assign.pork].pork===false});
+  if(noIce>0) checks.push({label:'不喝冰组饮料无冰', ok: DRINKS[dassign.noIce||'D6'].ice===false});
+  if(noCaf>0) checks.push({label:'不喝咖啡因组饮料无咖啡因', ok: DRINKS[dassign.noCaf||'D6'].caf===false});
+  if(sideItems.length || dessertQty) checks.push({label:'共享小食/甜品满足全员忌口与备注',
+    ok: Object.values(items).filter(i=>i.cat==='side').every(i=>{
+      const id = Object.keys(SIDES).find(k=>SIDES[k].n===i.n);
+      if(spicy>0 && SIDES[id].spicy>0) return false;
+      if(veg>0 && !SIDES[id].veg) return false;
+      if(note && note.trim() && !['S5','S6'].includes(id)) return false;
+      return true;
+    })});
+
+  const balance = +(budget-total).toFixed(1);
+  const groupText = groups.filter(g=>g.size>0).map(g=>`${g.label.replace('组','')}${g.size}人`).join(' + ');
+  return {
+    ok:true, req, items, steps, checks, balance,
+    total:+total.toFixed(1), kcal:Math.round(kcal),
+    perCapita:+(total/n).toFixed(1), kcalCap:Math.round(kcal/n),
+    groupText, orderNo:'P-'+String(Math.floor(1000+Math.random()*9000)),
+    time:new Date().toLocaleString('zh-CN',{hour12:false}).replace(/\//g,'-').slice(5),
+    rich: balance > budget*0.2,
+  };
+}
+window.__solve = solve;   // 供现场/测试直接调用
+
+/* ---------- 像素画（纯代码绘制，无图片依赖） ---------- */
+const PAL = {o:'#f2a25c',O:'#c97a33',s:'#ffe8b0',L:'#57b84e',l:'#3e8f3a',C:'#ffcf40',
+  P:'#7c4526',b:'#f2b06a',B:'#c9853f',F:'#ffd93d',f:'#d9a92e',R:'#e35d5d',r:'#b23c3c',
+  W:'#ffffff',S:'#ff5d5d',G:'#cfd8dc',D:'#71dfe4',d:'#3fa8ad'};
+const BURGER = [
+"....oooooooo....",
+"..oooooooooooo..",
+".oossooossoosoo.",
+"oosoosoosoosooso",
+".OOOOOOOOOOOOOO.",
+".lLLLLLLLLLLLLl.",
+"..CCCCCCCCCCCC..",
+"..PPPPPPPPPPPP..",
+"..PPPPPPPPPPPP..",
+".bbbbbbbbbbbbbb.",
+".BBBBBBBBBBBBBB.",
+"..BBBBBBBBBBBB..",
+];
+const FRIES = [
+"...F..F..F....",
+"..FF..FF.FF...",
+"..FFfFFfFFf...",
+"..FFFF.FFF....",
+"..RRRRRRRRRR..",
+".RWWRRRRRRWWR.",
+".RRRRRRRRRRRR.",
+".RRRRRRRRRRRR.",
+".rRRRRRRRRRRr.",
+".rrrrrrrrrrrr.",
+"..rrrrrrrrrr..",
+];
+const DRINK = [
+".......SS...",
+".......SS...",
+".......SS...",
+"..GGGGGGGG..",
+".GGGGGGGGGG.",
+".DDDDDDDDDD.",
+".DWWDDDDWWD.",
+".DDWWDDWWDD.",
+".DDDDDDDDDD.",
+".DDDDDDDDDD.",
+".DDDDDDDDDD.",
+".dDDDDDDDDd.",
+".dddddddddd.",
+"..dddddddd..",
+"....dddd....",
+];
+function drawSprite(canvasId, rows, scale){
+  const cv = document.getElementById(canvasId);
+  const W = Math.max(...rows.map(r=>r.length));
+  cv.width = W*scale; cv.height = rows.length*scale;
+  const ctx = cv.getContext('2d');
+  rows.forEach((row,y)=>{
+    row = (row + '.'.repeat(W)).slice(0,W);
+    [...row].forEach((ch,x)=>{
+      if(PAL[ch]){ ctx.fillStyle = PAL[ch]; ctx.fillRect(x*scale, y*scale, scale, scale); }
+    });
+  });
+}
+drawSprite('cvBurger', BURGER, 7);
+drawSprite('cvFries',  FRIES,  7);
+drawSprite('cvDrink',  DRINK,  7);
+
+/* ---------- 界面状态 ---------- */
+let state = {n:6, budget:150, spicy:2, veg:0, pork:0, noIce:0, noCaf:0, note:''};
+const $ = id => document.getElementById(id);
+function syncUI(){
+  $('v-n').textContent = state.n;
+  ['spicy','veg','pork','noIce','noCaf'].forEach(k=>$('v-'+k).textContent = state[k]);
+  $('v-budget').value = state.budget;
+  $('v-note').value = state.note;
+}
+document.querySelectorAll('.stepper button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const k = btn.dataset.key, d = +btn.dataset.d;
+    if(k==='n') state.n = Math.min(30, Math.max(1, state.n+d));
+    else state[k] = Math.min(state.n, Math.max(0, state[k]+d));
+    syncUI();
+  });
+});
+$('v-budget').addEventListener('input', e=>{ state.budget = +e.target.value || 0; });
+$('v-note').addEventListener('input', e=>{ state.note = e.target.value; });
+
+/* ---------- 一句话点单解析 ---------- */
+/* ---------- 中文数字与口语预处理 ---------- */
+function cn2num(str){
+  const D = {'零':0,'〇':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+  const U = {'十':10,'百':100,'千':1000};
+  let total = 0, pending = null, lastUnit = 0;
+  for(const ch of str){
+    if(D[ch] !== undefined) pending = D[ch];
+    else if(U[ch] !== undefined){ total += (pending===null?1:pending)*U[ch]; pending = null; lastUnit = U[ch]; }
+  }
+  if(pending !== null){
+    if(total === 0) total = pending;                  // "五"
+    else if(lastUnit >= 100) total += pending * 10;   // "一百五"=150
+    else total += pending;                             // "十五"=15
+  }
+  return total;
+}
+function normalizeSpeech(s){
+  s = s.replace(/俩/g,'2').replace(/仨/g,'3');
+  s = s.replace(/(\d+)\s*百/g, (m,d)=>String(+d*100));   // "2百"
+  s = s.replace(/(\d+)\s*千/g, (m,d)=>String(+d*1000));  // "3千"
+  s = s.replace(/([零〇一二两三四五六七八九十百千]+)(?=\s*(?:个|人|位|名|块|元|圆|，|。|、|,|$))/g, m=>String(cn2num(m)));
+  return s;
+}
+
+/* ---------- 一句话点单解析 ---------- */
+function parseQuick(raw){
+  let s = String(raw||'').replace(/，/g,',').replace(/[\u3000\u00A0]/g,' ').trim();
+  if(!s) return null;
+  s = normalizeSpeech(s);
+  const r = {n:null,budget:null,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''};
+
+  /* 人数：取最早出现的"X(个/位/名)?人"或"X位/名"；紧跟忌口词的是忌口人数，不当总人数 */
+  const nPat = /(\d+)\s*(?:个|位|名)?\s*人|(\d+)\s*[位名]/g;
+  let m, nCand = null;
+  while((m = nPat.exec(s)) !== null){
+    const after = s.slice(m.index + m[0].length, m.index + m[0].length + 7);
+    if(/^(?:不吃辣|不能吃辣|不敢吃辣|吃不了辣|吃不得辣|没法吃辣|忌辣|怕辣|个?吃素|素食|全素|不吃肉|不吃荤|不吃猪|忌猪肉|不吃大肉|清真|不喝冰|不吃冰|不要冰|不能喝冰|喝不了冰|不喝凉|怕凉|不喝咖啡|忌咖啡因|不碰咖啡|不能喝咖啡|喝不了咖啡|不喝茶|辣的?|[^,，。]{0,6}过敏)/.test(after)) continue;
+    nCand = +(m[1]||m[2]); break;
+  }
+  r.n = nCand;
+
+  /* 预算：人均优先，其次带单位，再次¥，最后数字兜底 */
+  let perCap = null;
+  if(m = s.match(/(?:人均|每人|平均)\s*(?:[¥￥]\s*)?(\d+(?:\.\d+)?)/)) perCap = +m[1];
+  if(perCap !== null && r.n) r.budget = +(perCap * r.n).toFixed(1);
+  else if(m = s.match(/(?:预算|大约|约|共?计?)?\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*(?:块|元|圆)/)) r.budget = +m[1];
+  else if(m = s.match(/[¥￥]\s*(\d+(?:\.\d+)?)/)) r.budget = +m[1];
+
+  /* 忌口人数：词族集中定义，正向 / 倒装 / 无数量(=1) / 全员(=N) 四种说法全覆盖 */
+  const FAM = {
+    spicy: '不吃辣|不能吃辣|不敢吃辣|吃不了辣|吃不得辣|没法吃辣|忌辣',
+    veg:   '个?吃素|素食|全素|不吃肉|不吃荤',
+    pork:  '不吃猪(?:肉)?|忌猪肉|不吃大肉|清真',
+    noIce: '不喝冰|不吃冰|不要冰(?:的)?|不能喝冰|喝不了冰|不喝凉(?:的)?|(?<!不)怕凉',
+    noCaf: '不喝咖啡(?:因)?|忌咖啡因|不碰咖啡|不能喝咖啡|喝不了咖啡|不喝茶',
+  };
+  const SPICY_ALL = '辣[^,，。]{0,3}都不能吃';    // “辣的都不能吃”＝全员忌辣
+  const U2 = '[人个位名]?\\s*[人个位名]?\\s*[都也]?\\s*';
+  const T2 = '[的]?\\s*(?:人|个|位|名)?\\s*(?:有|共|是)?\\s*';
+  const grab = (fwd, rev, kw)=>{
+    let mm = s.match(fwd); if(mm) return +mm[1];
+    mm = s.match(rev);     if(mm) return +mm[1];
+    const km = s.match(kw);
+    if(km){
+      const before = s.slice(Math.max(0, km.index-3), km.index);
+      if(/(?:全员|大家|全都?|都)$/.test(before)) return null;   // 让路给“全员=全部人”规则
+      return 1;
+    }
+    return null;
+  };
+  const allN = (reAll)=> s.match(reAll) ? r.n : null;
+  let v;
+  const spicyFam = FAM.spicy + '|(?<!不)怕辣';
+  v = grab(new RegExp('(\\d+)\\s*'+U2+'(?:'+spicyFam+'|'+SPICY_ALL+')'),
+           new RegExp('(?:'+spicyFam+'|'+SPICY_ALL+')'+T2+'(\\d+)'),
+           new RegExp('(?:'+spicyFam+')'));
+  if(v===null) v = allN(new RegExp('(?:(?:全员|大家|全都?|都)\\s*(?:'+FAM.spicy+'))|'+SPICY_ALL));
+  if(v!==null) r.spicy = v;
+  v = grab(new RegExp('(\\d+)\\s*'+U2+'(?:'+FAM.veg+')'),
+           new RegExp('(?:'+FAM.veg+')'+T2+'(\\d+)'),
+           new RegExp('(?:'+FAM.veg+')'));
+  if(v===null) v = allN(new RegExp('(?:全员|大家|全都?|都)\\s*(?:个?吃素|是素食?|全素|不吃肉|不吃荤)'));
+  if(v!==null) r.veg = v;
+  v = grab(new RegExp('(\\d+)\\s*'+U2+'(?:'+FAM.pork+')'),
+           new RegExp('(?:'+FAM.pork+')'+T2+'(\\d+)'),
+           new RegExp('(?:'+FAM.pork+')'));
+  if(v===null) v = allN(new RegExp('(?:全员|大家|全都?|都)\\s*(?:不吃猪(?:肉)?|不吃大肉|清真)'));
+  if(v!==null) r.pork = v;
+  v = grab(new RegExp('(\\d+)\\s*'+U2+'(?:'+FAM.noIce+')'),
+           new RegExp('(?:'+FAM.noIce+')'+T2+'(\\d+)'),
+           new RegExp('(?:'+FAM.noIce+')'));
+  if(v===null) v = allN(new RegExp('(?:全员|大家|全都?|都)\\s*(?:'+FAM.noIce+')'));
+  if(v!==null) r.noIce = v;
+  v = grab(new RegExp('(\\d+)\\s*'+U2+'(?:'+FAM.noCaf+')'),
+           new RegExp('(?:'+FAM.noCaf+')'+T2+'(\\d+)'),
+           new RegExp('(?:'+FAM.noCaf+')'));
+  if(v===null) v = allN(new RegExp('(?:全员|大家|全都?|都)\\s*(?:'+FAM.noCaf+')'));
+  if(v!==null) r.noCaf = v;
+
+
+  if(r.budget === null){
+    const nums = (s.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    const used = [r.n, r.spicy, r.veg, r.pork, r.noIce, r.noCaf].filter(x=>x!==null);
+    const rest = nums.filter(x=>{
+      const i = used.indexOf(x); if(i>=0){ used.splice(i,1); return false; } return true;
+    });
+    if(rest.length) r.budget = Math.max(...rest);
+  }
+  /* 过敏类信息整句路由到备注（并配合上方 lookahead，防“1人过敏”被误当总人数） */
+  const am = s.match(/[^,，。;；、]{0,16}过敏[^,，。;；]*/);
+  if(am && am[0].trim()) r.note = am[0].trim();
+
+  if(r.n===null || r.budget===null) return null;
+  r.spicy=Math.min(r.spicy,r.n); r.veg=Math.min(r.veg,r.n); r.pork=Math.min(r.pork,r.n);
+  r.noIce=Math.min(r.noIce,r.n); r.noCaf=Math.min(r.noCaf,r.n);
+  return r;
+}
+
+$('quickInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ const r = parseQuick($('quickInput').value);
+    if(r){ state = r; syncUI(); order(); } else showErr('没听清——试试“6人 150元 2人不吃辣”这种说法'); }
+});
+
+/* ---------- 预设 ---------- */
+const PRESETS = [
+  {label:'🍔 海报同款', tip:'6人·150元·2人不吃辣', req:{n:6,budget:150,spicy:2,veg:0,pork:0,noIce:0,noCaf:0,note:''}},
+  {label:'👔 8人团建', tip:'8人·200元·无忌口', req:{n:8,budget:200,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}},
+  {label:'🥬 素食团', tip:'5人·90元·3人吃素', req:{n:5,budget:90,spicy:0,veg:3,pork:0,noIce:0,noCaf:0,note:''}},
+  {label:'💰 预算充裕', tip:'4人·300元', req:{n:4,budget:300,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}},
+  {label:'🧊 忌口复杂', tip:'7人·260元·2不辣+1素+2不冰', req:{n:7,budget:260,spicy:2,veg:1,pork:0,noIce:2,noCaf:0,note:''}},
+  {label:'🚫 预算不足', tip:'6人·70元·2不吃辣（演示优雅拒绝）', req:{n:6,budget:70,spicy:2,veg:0,pork:0,noIce:0,noCaf:0,note:''}},
+];
+PRESETS.forEach(p=>{
+  const b = document.createElement('button');
+  b.className='chip'; b.textContent = p.label; b.title = p.tip;
+  b.addEventListener('click', ()=>{ state = {...p.req}; syncUI(); order(); });
+  $('presets').appendChild(b);
+});
+const rnd = document.createElement('button');
+rnd.className='chip'; rnd.textContent='🎲 随机点单';
+rnd.addEventListener('click', ()=>{
+  const n = 3 + Math.floor(Math.random()*8);
+  const budget = Math.round(n*(14 + Math.random()*22));
+  state = {n, budget, spicy: Math.random()<.6?Math.floor(Math.random()*Math.max(1,n-1)):0,
+    veg: Math.random()<.3?1+Math.floor(Math.random()*2):0, pork:0,
+    noIce: Math.random()<.3?1:0, noCaf:0, note:''};
+  state.veg = Math.min(state.veg, Math.max(0, n - state.spicy - 1));   // 忌口合计不超人数
+  syncUI(); order();
+});
+$('presets').appendChild(rnd);
+
+/* ---------- 渲染 ---------- */
+function dispLen(s){ return [...s].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0); }
+function pad(s, cols){ const d = cols - dispLen(s); return s + ' '.repeat(Math.max(0,d)); }
+function padL(s, cols){ const d = cols - dispLen(s); return ' '.repeat(Math.max(0,d)) + s; }
+const SEP = '─'.repeat(30);
+
+function buildReceiptText(r){
+  const L = [];
+  L.push('       像素快餐 PIXEL DINER');
+  L.push(`  订单 ${r.orderNo}   ${r.time}`);
+  L.push(SEP);
+  const prefs = [];
+  if(r.req.spicy) prefs.push(`${r.req.spicy}人不吃辣`);
+  if(r.req.veg) prefs.push(`${r.req.veg}人素食`);
+  if(r.req.pork) prefs.push(`${r.req.pork}人不吃猪肉`);
+  if(r.req.noIce) prefs.push(`${r.req.noIce}人不喝冰`);
+  if(r.req.noCaf) prefs.push(`${r.req.noCaf}人不喝咖啡因`);
+  L.push(`  需求  ${r.req.n}人 · 预算 ¥${fmt(r.req.budget)}`);
+  if(prefs.length) L.push(`  忌口  ${prefs.join('，')}`);
+  if(r.req.note && r.req.note.trim()){
+    const nt = r.req.note.trim();
+    L.push(`  备注  ${[...nt].length > 24 ? [...nt].slice(0,24).join('')+'…' : nt}`);
+  }
+  L.push(SEP);
+  const catOrder = {main:0, side:1, drink:2};
+  const list = Object.entries(r.items).sort((a,b)=>
+    catOrder[a[1].cat]-catOrder[b[1].cat] || a[0].localeCompare(b[0]));
+  for(const [id, it] of list){
+    L.push(`  ${pad(it.n,17)} ×${String(it.qty).padStart(2)}  ¥${padL(fmt(it.p*it.qty),6)}`);
+  }
+  L.push(SEP);
+  L.push(`  合计 ¥${fmt(r.total)}   人均 ¥${fmt(r.perCapita)}`);
+  L.push(`  结余 ¥${fmt(r.balance)}   能量 ≈${r.kcalCap}千卡/人`);
+  if(r.groupText) L.push(`  拆解 ${r.groupText}`);
+  L.push(SEP);
+  L.push('  预算流水');
+  for(const s of r.steps){
+    L.push(`  ${pad(s.name,15)} ${padL(s.delta>0 ? '¥'+fmt(s.delta) : '—',8)} →¥${fmt(s.run)}`);
+  }
+  L.push(SEP);
+  const passed = r.checks.filter(c=>c.ok).length;
+  L.push(`  硬约束自检 ${passed}/${r.checks.length} 通过 ✓`);
+  L.push('     谢谢惠顾 · 把饭点安排明白');
+  return L.join('\n');
+}
+
+function order(){
+  showErr('');
+  const r = solve({...state});
+  if(r.err){ showErr(r.err); return; }
+  $('result').style.display = 'block';
+  if(r.infeasible){
+    renderRefuse(r);
+    $('traceHost').innerHTML = '';
+    $('checkHost').innerHTML = '';
+    $('richnote').textContent = '';
+    return;
+  }
+  $('refuseHost').innerHTML = '';
+  const text = buildReceiptText(r);
+  $('paperHost').innerHTML = `<div class="paper"><pre>${text}</pre></div>`;
+  /* 流水 */
+  $('traceHost').innerHTML = r.steps.map(s=>`
+    <div class="trace-row">
+      <span class="sname">${s.name}</span>
+      <span class="sdesc">${s.detail}</span>
+      <span class="sdelta">${s.delta>0 ? '¥'+fmt(s.delta) : '—'}</span>
+      <span class="srun">¥${fmt(s.run)}</span>
+    </div>`).join('') + `
+    <div class="trace-row final">
+      <span class="sname">结余</span>
+      <span class="sdesc">预算 ¥${fmt(r.req.budget)} − 总价 ¥${fmt(r.total)}</span>
+      <span class="sdelta"></span>
+      <span class="srun" style="color:var(--yellow)">¥${fmt(r.balance)}</span>
+    </div>`;
+  /* 自检 */
+  $('checkHost').innerHTML = r.checks.map(c=>`
+    <li><span class="${c.ok?'pass':'fail'}">${c.ok?'✓':'✗'}</span> ${c.label}</li>`).join('');
+  $('richnote').textContent = r.rich
+    ? '预算充裕（结余超过预算两成）：方案已到本店合理天花板，不为凑单硬点。剩余建议留作加餐或下午茶。'
+    : '说明：所有金额可按“预算流水”用纸笔复算；同一需求永远得到同一方案。';
+  currentReceipt = text;
+}
+function renderRefuse(r){
+  const mini = Object.values(r.items).map(it=>`${it.n}×${it.qty}`).join(' + ');
+  $('paperHost').innerHTML = `<div class="paper"><pre>${[
+    '       像素快餐 PIXEL DINER',
+    `  订单 ${'P-'+String(Math.floor(1000+Math.random()*9000))}   （点不成）`,
+    SEP,
+    `  需求  ${r.req.n}人 · 预算 ¥${fmt(r.req.budget)}`,
+    SEP,
+    '  这一单点不成：',
+    `  保底合计 ¥${fmt(r.baseTotal)} > 预算 ¥${fmt(r.req.budget)}`,
+    `  差额 ¥${fmt(r.gap)}`,
+    SEP,
+    '  最省点法（人人有主食）：',
+    `  ${mini} = ¥${fmt(r.baseTotal)}`,
+    '  饮料：餐厅免费柠檬水',
+    SEP,
+    ...(r.req.n > 1 ? [
+      '  二选一：',
+      `  ① 预算补到 ¥${fmt(r.baseTotal)} 即可按算法升级`,
+      `  ② 减 1 人，最低只要 ¥${fmt(r.saveByOne)}`,
+    ] : [
+      '  出路：',
+      `  预算补到 ¥${fmt(r.baseTotal)} 即可按算法点单`,
+      '  （单人单没有“减人”空间）',
+    ]),
+    '     谢谢惠顾 · 把饭点安排明白',
+  ].join('\n')}</pre></div>`;
+  $('refuseHost').innerHTML = `<div class="refuse">
+    <b>■ 这一单点不成</b><br>
+    ${r.req.n}人的保底主食就要 <b>¥${fmt(r.baseTotal)}</b>（人均 ¥${fmt(r.baseTotal/r.req.n)}），预算 ¥${fmt(r.req.budget)} 差 <b>¥${fmt(r.gap)}</b>。<br>
+    <span class="ok">✓ 不硬编、不降质、不超支</span>——上面小票给出了最省点法${r.req.n > 1 ? `和两条出路：补预算，或减 1 人（最低 ¥${fmt(r.saveByOne)}）` : '和出路：单人单没有“减人”空间，补预算即可'}。
+  </div>`;
+}
+function showErr(msg){ $('errmsg').textContent = msg; }
+
+let currentReceipt = '';
+$('orderBtn').addEventListener('click', order);
+$('copyBtn').addEventListener('click', ()=>{
+  if(!currentReceipt) return;
+  const done = ()=>{ const b=$('copyBtn'); b.textContent='✓ 已复制，去群里发'; b.classList.add('done');
+    setTimeout(()=>{ b.textContent='📋 复制小票文本（发群里）'; b.classList.remove('done'); },2000); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(currentReceipt).then(done).catch(()=>fallbackCopy(done));
+  }else fallbackCopy(done);
+});
+function fallbackCopy(done){
+  const ta = document.createElement('textarea');
+  ta.value = currentReceipt; document.body.appendChild(ta);
+  ta.select(); try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta); done();
+}
+
+/* ---------- 内置回归自检（现场可复跑，把“回归”做成功能） ---------- */
+const QA_SOLVER = [
+  ['海报同款 6人150 2不辣', {n:6,budget:150,spicy:2,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 148.0],
+  ['8人200 无忌口', {n:8,budget:200,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 194.0],
+  ['5人90 素3', {n:5,budget:90,spicy:0,veg:3,pork:0,noIce:0,noCaf:0,note:''}, 85.0],
+  ['6人150 素2', {n:6,budget:150,spicy:0,veg:2,pork:0,noIce:0,noCaf:0,note:''}, 146.0],
+  ['4人300 充裕', {n:4,budget:300,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 168.0],
+  ['7人260 复杂忌口', {n:7,budget:260,spicy:2,veg:1,pork:0,noIce:2,noCaf:0,note:''}, 259.0],
+  ['1人50', {n:1,budget:50,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 40.0],
+  ['2人500 超大预算', {n:2,budget:500,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 70.0],
+  ['12人400 猪3', {n:12,budget:400,spicy:0,veg:0,pork:3,noIce:0,noCaf:0,note:''}, 394.0],
+  ['20人1000 全辣+冰5', {n:20,budget:1000,spicy:20,veg:0,pork:0,noIce:5,noCaf:0,note:''}, 798.0],
+  ['6人150 辣2+过敏备注', {n:6,budget:150,spicy:2,veg:0,pork:0,noIce:0,noCaf:0,note:'1人花生过敏'}, 145.0],
+  ['6人150 辣2+冰1', {n:6,budget:150,spicy:2,veg:0,pork:0,noIce:1,noCaf:0,note:''}, 149.5],
+  ['3人45 极限预算', {n:3,budget:45,spicy:0,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 37.5],
+];
+const QA_REFUSE = [['6人70 2不辣（应优雅拒绝）', {n:6,budget:70,spicy:2,veg:0,pork:0,noIce:0,noCaf:0,note:''}, 77.0]];
+const QA_PARSER = [
+  ['6人 150元 2人不吃辣', {n:6,budget:150,spicy:2}],
+  ['六个人，预算一百五十元，俩人不能吃辣', {n:6,budget:150,spicy:2}],
+  ['9个人，人均33元', {n:9,budget:297}],
+  ['6个人150元，不吃辣的有俩', {n:6,budget:150,spicy:2}],
+  ['预算是150，6个人，2人不吃辣', {n:6,budget:150,spicy:2}],
+  ['8个人240块，有人吃素', {n:8,budget:240,veg:1}],
+  ['6位，150元，2人不吃辣', {n:6,budget:150,spicy:2}],
+  ['二十个人两千块全员不吃辣', {n:20,budget:2000,spicy:20}],
+  ['其中俩都不吃辣，6人150元', {n:6,budget:150,spicy:2}],
+  ['10个人，2个人吃素的，不喝冰的有仨，300块', {n:10,budget:300,veg:2,noIce:3}],
+  ['我们不怕辣，6个人150元', {n:6,budget:150,spicy:0}],
+  ['百事可乐来两杯，6人150元', {n:6,budget:150}],
+  ['三十个人，预算三千，5人不吃辣', {n:30,budget:3000,spicy:5}],
+  ['1个人10块', {n:1,budget:10}],
+  ['6人150元，3人吃不了辣', {n:6,budget:150,spicy:3}],
+  ['辣的都不能吃，6个人150元', {n:6,budget:150,spicy:6}],
+  ['有2个人不吃肉，8人200元', {n:8,budget:200,veg:2}],
+  ['6人150元，1人花生过敏', {n:6,budget:150,note:'过敏'}],
+  ['1人坚果过敏，6人150元，2人不吃辣', {n:6,budget:150,spicy:2,note:'过敏'}],
+  ['4人200元，俩人清真', {n:4,budget:200,pork:2}],
+];
+function runQA(){
+  const rows = []; let pass = 0, total = 0;
+  const eq = (a,b)=>Math.abs(a-b) < 0.05;
+  for(const [name, req, exp] of QA_SOLVER){
+    total++;
+    const r = window.__solve({...req});
+    const ok = !r.infeasible && !r.err && eq(r.total, exp) && r.checks.every(c=>c.ok);
+    if(ok) pass++;
+    rows.push({ok, group:'求解', name, got: r.infeasible ? '点不成' : (r.err || '¥'+(r.total||0).toFixed(1)), exp:'¥'+exp.toFixed(1)});
+  }
+  for(const [name, req, exp] of QA_REFUSE){
+    total++;
+    const r = window.__solve({...req});
+    const ok = r.infeasible && eq(r.baseTotal, exp);
+    if(ok) pass++;
+    rows.push({ok, group:'拒绝', name, got: r.infeasible ? '保底¥'+r.baseTotal.toFixed(1) : '¥'+r.total.toFixed(1), exp:'保底¥'+exp.toFixed(1)});
+  }
+  for(const [input, exp] of QA_PARSER){
+    total++;
+    const p = parseQuick(input);
+    let ok = !!p;
+    const got = {};
+    if(p){
+      for(const k of ['n','budget','spicy','veg','pork','noIce','noCaf']){
+        if(exp[k] !== undefined){ got[k] = p[k]; if(p[k] !== exp[k]) ok = false; }
+      }
+      if(exp.note){ got.note = (p.note||'').slice(0,10); if(!(p.note||'').includes(exp.note)) ok = false; }
+    }
+    if(ok) pass++;
+    rows.push({ok, group:'解析', name: input, got: p ? JSON.stringify(got) : '解析失败', exp: JSON.stringify(exp)});
+  }
+  console.log('%c开饭·回归自检 '+pass+'/'+total, 'color:#ffd93d;font-weight:bold');
+  console.table(rows);
+  return {pass, total, rows};
+}
+(function buildQA(){
+  const chip = document.createElement('button');
+  chip.className = 'chip'; chip.textContent = '🧪 一键自检';
+  chip.title = '34断言：求解13+解析20+拒绝1，现场可复跑';
+  chip.addEventListener('click', ()=>{
+    const {pass, total, rows} = runQA();
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(8,8,20,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:18px;';
+    const lines = rows.map(r=>`<div style="display:flex;gap:8px;align-items:baseline;padding:5px 4px;border-bottom:1px dashed #31315e;font-size:13px;">
+      <span style="color:${r.ok?'#7ce38b':'#ff5d5d'};font-weight:800">${r.ok?'✓':'✗'}</span>
+      <span style="color:#71dfe4;min-width:34px">${r.group}</span>
+      <span style="color:#e8e8f5;flex:1">${r.name.length>22 ? r.name.slice(0,22)+'…' : r.name}</span>
+      <span style="color:#8d8db8;font-family:Consolas,monospace">${r.ok ? r.exp : '得'+r.got+' 应'+r.exp}</span></div>`).join('');
+    ov.innerHTML = `<div style="background:#1d1d3a;border:3px solid #31315e;border-radius:10px;max-width:640px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:0 0 40px rgba(0,0,0,.6)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:20px;font-weight:900;color:${pass===total?'#7ce38b':'#ff5d5d'};letter-spacing:2px">🧪 回归自检 ${pass}/${total} ${pass===total?'全过 ✓':'存在失败'}</span>
+        <span data-qa-close style="cursor:pointer;color:#8d8db8;font-size:22px;line-height:1;padding:2px 8px">×</span>
+      </div>
+      <div style="color:#8d8db8;font-size:12px;margin-bottom:12px">求解 13 · 解析 20 · 拒绝 1 —— 断言写死在算法里，现场可随时复跑</div>
+      ${lines}
+      <button style="margin-top:16px;background:#ffd93d;color:#241d00;border:none;border-radius:6px;padding:10px 26px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit">关闭</button>
+    </div>`;
+    ov.querySelector('button').addEventListener('click', ()=>ov.remove());
+    ov.querySelector('[data-qa-close]').addEventListener('click', ()=>ov.remove());
+    const onEsc = e=>{ if(e.key==='Escape'){ ov.remove(); document.removeEventListener('keydown', onEsc); } };
+    document.addEventListener('keydown', onEsc);
+    ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+    document.body.appendChild(ov);
+  });
+  $('presets').appendChild(chip);
+})();
+
+/* 开场即待命海报同款，按一下「开饭！」就能演示 */
+syncUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+ "seq": 1,
+ "captured_at": "2026-10-23 09:44:41",
+ "method": "initialize",
+ "tool": "-",
+ "arguments": {
+  "protocolVersion": "2024-11-05",
+  "capabilities": {},
+  "clientInfo": {
+   "name": "yongcan-skill",
+   "version": "1.0"
+  }
+ },
+ "success": true,
+ "traceId": "-",
+ "raw_response": {
+  "jsonrpc": "2.0",
+  "id": 101,
+  "result": {
+   "capabilities": {
+    "tools": {}
+   },
+   "protocolVersion": "2024-11-05",
+   "serverInfo": {
+    "name": "mcd-mcp",
+    "version": "1.0.0"
+   }
+  }
+ }
+}
